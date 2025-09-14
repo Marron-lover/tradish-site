@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tradish — Cultural Recipes</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#161a22; --ink:#e9eef8; --muted:#9aa4b2;
+    --brand:#7bd389; --brand-ink:#0b2a18; --accent:#8ab8ff; --warn:#ffd27d;
+    --stroke:#242a36; --pill:#1f2530;
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    color:var(--ink); background:linear-gradient(180deg,#0b0e13, #0f1115 30%);
+  }
+  a{color:inherit; text-decoration:none}
+  .app{max-width:440px; margin:0 auto; min-height:100vh; display:grid; grid-template-rows:auto 1fr auto}
+
+  header{
+    position:sticky; top:0; z-index:10; background:rgba(15,17,21,.6); backdrop-filter: blur(10px);
+    border-bottom:1px solid var(--stroke);
+  }
+  header .bar{display:flex; align-items:center; gap:12px; padding:14px 16px}
+  .logo{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.2px}
+  .logo .seed{
+    width:28px; height:28px; border-radius:10px;
+    background: radial-gradient(circle at 30% 30%, var(--brand), #52a770 60%, #2b5c3b);
+    border:1px solid #2b5c3b; box-shadow:0 0 0 3px rgba(123,211,137,.15) inset;
+  }
+  .badge{font-size:12px; color:var(--muted)}
+  .chip{font-size:12px; padding:6px 10px; border-radius:999px; background:var(--pill); color:var(--ink); border:1px solid var(--stroke)}
+
+  /* Screens */
+  main{position:relative; overflow:hidden}
+  section.screen{
+    position:absolute; inset:0; overflow:auto; padding-bottom:90px; display:none; animation:fade .25s ease;
+  }
+  @keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+
+  /* Router via :target */
+  #signup:target, #feed:target, #recipe:target, #ingredients:target, #scan:target, #upload:target { display:block; }
+  main:has(:target) .default{ display:none; }
+  .default{ display:block; }
+
+  /* Cards / lists */
+  .wrap{padding:16px}
+  .card{
+    background:var(--card); border:1px solid var(--stroke); border-radius:var(--radius);
+    padding:14px; box-shadow:0 8px 20px rgba(0,0,0,.25);
+  }
+  .hstack{display:flex; align-items:center; gap:10px}
+  .vstack{display:flex; flex-direction:column; gap:10px}
+  .grid{display:grid; gap:12px}
+  .grid.cols-2{grid-template-columns:1fr 1fr}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+  .muted{color:var(--muted)}
+  .title{font-size:20px; font-weight:800}
+  .subtitle{font-size:13px; color:var(--muted)}
+  .pill{padding:6px 10px; border-radius:999px; background:#141922; border:1px solid var(--stroke); font-size:12px}
+  .btn{
+    display:inline-block; text-align:center; padding:12px 14px; border-radius:14px; font-weight:700;
+    border:1px solid var(--stroke); background:linear-gradient(180deg,#1b222d,#141922); color:var(--ink);
+  }
+  .btn.brand{background:linear-gradient(180deg, #7bd389, #3c9e5a); border:1px solid #2b5c3b; color:#03120a;}
+  .btn.ghost{background:transparent}
+  .btn.small{padding:8px 10px; font-size:13px; border-radius:12px}
+  .btn.full{width:100%}
+  .tag{font-size:11px; padding:4px 8px; border-radius:999px; background:#142432; border:1px solid #1f3347}
+  .img{
+    width:100%; aspect-ratio:16/10; border-radius:14px; background:#0d0f13;
+    background-size:cover; background-position:center; border:1px solid var(--stroke);
+  }
+  img.img{width:100%; aspect-ratio:16/10; border-radius:14px; border:1px solid var(--stroke); object-fit:cover; background:#0d0f13; display:block}
+
+  /* Feed */
+  .search{display:flex; gap:10px}
+  .search input{
+    flex:1; padding:12px 14px; border-radius:14px; border:1px solid var(--stroke);
+    background:#12161f; color:var(--ink); outline:none;
+  }
+  .rec-card .img{margin-bottom:10px}
+  .meta{display:flex; gap:8px; flex-wrap:wrap}
+
+  /* Recipe detail */
+  .step{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start}
+  .bullet{width:26px; height:26px; border-radius:9px; display:grid; place-items:center; background:#1a2634; border:1px solid #213248; font-weight:800}
+  .two-col{display:grid; gap:12px}
+  @media(min-width:430px){ .two-col{grid-template-columns:1.2fr .8fr} }
+
+  /* Ingredient list with CSS “Find Substitute” toggles */
+  .ing{display:flex; align-items:flex-start; gap:10px;}
+  .ing > div:first-child{flex:1; writing-mode:horizontal-tb; white-space:normal; overflow-wrap:anywhere;}
+  .ing .hstack{flex-shrink:0;}
+  .subrow{padding:10px; border-radius:12px; background:#101922; border:1px dashed #233044; margin-top:8px}
+  .toggle{display:none}
+  .toggle + label{cursor:pointer; padding:7px 10px; border-radius:12px; font-size:12px; border:1px solid #284a2f; background:rgba(123,211,137,.12); color:#c9f3d2;}
+  .toggle:checked + label{ background:linear-gradient(180deg,#7bd389,#3c9e5a); color:#082312; border-color:#2b5c3b }
+  .toggle ~ .subrow{ display:none }
+  .toggle:checked ~ .subrow{ display:block }
+
+  /* Fix overlapping text when substitute button toggled */
+  .ing{align-items:start}
+  .ing > div:first-child{line-height:1.4; word-break:normal; overflow-wrap:break-word; hyphens:auto;}
+  .ing .hstack{align-self:start}
+  .toggle + label{margin-top:2px; line-height:1.2;}
+  .subrow{margin-top:10px}
+  .substitute-pill{display:inline-block; background:linear-gradient(180deg,#ffd27d,#ffe7b3); color:#222; border-radius:8px; padding:6px 8px; margin-right:8px; font-weight:600; line-height:1.2; box-shadow:0 1px 2px #0004;}
+  .substitute-pill.small{padding:4px 6px; font-size:12px}
+
+  /* AI Agent chat styles */
+  .ai-agent{margin-top:18px; padding-top:12px; border-top:1px solid var(--stroke);}
+  .ai-agent .chat-log{display:flex; flex-direction:column; gap:10px; max-height:220px; overflow:auto; margin-top:12px; padding-right:4px;}
+  .chat-msg{display:flex; gap:10px; font-size:13px; line-height:1.4;}
+  .chat-msg .avatar{width:30px; height:30px; border-radius:10px; background:#1a2532; flex-shrink:0; display:grid; place-items:center; font-size:14px;}
+  .chat-msg.user .avatar{background:#2b5c3b; color:#dfffe8;}
+  .chat-msg.assistant .avatar{background:#142432; color:#8ab8ff;}
+  .chat-msg .bubble{background:#121722; border:1px solid var(--stroke); padding:8px 10px; border-radius:14px; flex:1;}
+  .chat-msg.user .bubble{background:linear-gradient(180deg,#1b222d,#141922);} 
+  .chat-form{display:flex; gap:8px; margin-top:12px;}
+  .chat-form input[type="text"]{flex:1; padding:10px 12px; border-radius:14px; border:1px solid var(--stroke); background:#12161f; color:var(--ink); outline:none;}
+  .chat-form button{white-space:nowrap;}
+
+  .mode-toggle-btn{position:absolute; top:8px; left:8px; z-index:5; background:#161a22cc; backdrop-filter:blur(4px); border:1px solid var(--stroke); color:var(--ink); font-size:10px; padding:4px 6px; border-radius:8px; cursor:pointer; line-height:1; font-weight:600;}
+  .mode-toggle-btn:hover{background:#1f2530}
+  
+  /* Scan screen camera */
+  .cam-shell{
+    position:relative; border:1px solid var(--stroke); border-radius:20px; overflow:hidden; background:#000;
+    aspect-ratio:9/16; max-height:68vh;
+  }
+  .cam-video, .cam-fallback{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000;
+  }
+  .cam-ui{
+    position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none; z-index:2;
+  }
+  .cam-top{
+    display:flex; justify-content:space-between; padding:10px; font-size:12px; color:#fff8;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);
+  }
+  .notch{
+    align-self:center; width:120px; height:26px; background:rgba(0,0,0,.55); border-radius:14px; margin-top:8px;
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .cam-bottom{
+    display:flex; flex-direction:column; align-items:center; gap:14px; padding:16px;
+  }
+  .shutter{
+    pointer-events:auto; width:66px; height:66px; border-radius:50%;
+    background:#fff; border:6px solid rgba(255,255,255,.3); box-shadow:0 6px 16px rgba(0,0,0,.5);
+  }
+  .scan-flash{
+    position:absolute; inset:0; background:#fff; opacity:0; transition:opacity .18s ease;
+  }
+  .scan-flash.active{opacity:.9}
+
+  .scan-results .title{font-size:16px}
+  .scan-results .recipe-badge{display:inline-flex; gap:6px; align-items:center}
+
+  /* Editable list */
+  .detected{display:grid; gap:10px}
+  .item{display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:10px; border:1px solid var(--stroke); border-radius:14px; background:#121722;}
+  .checkbox{width:18px; height:18px}
+  .editable{outline:none; min-width:0; padding:6px 8px; border-radius:8px; background:#0f141d; border:1px dashed #233044}
+  .note{font-size:12px; color:var(--muted)}
+
+  /* Bottom tab bar */
+  nav.tabbar{
+    position:sticky; bottom:0; z-index:10; background:rgba(15,17,21,.75); backdrop-filter:blur(10px);
+    border-top:1px solid var(--stroke);
+  }
+  .tabs{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:10px}
+  .tab{display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 8px; border-radius:12px; color:var(--muted);}
+  .tab .ico{font-size:18px}
+  .tab.active{color:var(--ink); background:var(--pill); border:1px solid var(--stroke)}
+  body:not(:has(main :target)) .tabs a[href="#feed"]{ color:var(--ink); background:var(--pill) }
+
+  /* Helpers */
+  .spacer{height:6px}
+  .mt8{margin-top:8px} .mt12{margin-top:12px} .mt16{margin-top:16px} .mt20{margin-top:20px}
+  .sticky-sub{
+  /* position:sticky; top:60px; z-index:5; */
+  background:linear-gradient(180deg,#0f1115, #0f111500); 
+  padding:10px 16px 6px;
+}
+  .divider{height:1px; background:var(--stroke); margin:6px 0}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="bar">
+      <div class="logo"><div class="seed" aria-hidden="true"></div> Tradish <span class="badge">beta</span></div>
+      <div style="margin-left:auto" class="chip">Celebrate culture through food</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- SIGN UP -->
+    <section id="signup" class="screen">
+      <div class="wrap vstack">
+        <div class="title">Welcome to Tradish</div>
+        <div class="subtitle">Choose your language and (optionally) a focus country to personalize your feed.</div>
+
+        <div class="card vstack">
+          <label class="subtitle" for="lang">Preferred language</label>
+          <select id="lang" style="padding:12px; border-radius:14px; background:#12161f; color:var(--ink); border:1px solid var(--stroke)">
+            <option>English</option>
+          </select>
+
+          <label class="subtitle mt12" for="country">Focus country (optional)</label>
+          <input id="country" placeholder="e.g., Japan" style="padding:12px; border-radius:14px; background:#12161f; color:var(--ink); border:1px solid var(--stroke)">
+
+          <div class="mt16 hstack" style="justify-content:space-between">
+            <a href="#feed" class="btn ghost">Skip</a>
+            <a href="#feed" class="btn brand">Continue</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEED (default) -->
+    <section id="feed" class="screen default">
+      <div class="sticky-sub">
+        <div class="search">
+          <input placeholder="Search dishes, cultures, ingredients…" />
+          <a class="btn small" href="#signup">Prefs</a>
+        </div>
+      </div>
+
+      <div class="wrap grid">
+        <!-- Card 1 -->
+        <article class="card rec-card">
+          <div class="img" style="background-image:url('https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1200&auto=format&fit=crop');"></div>
+          <div class="hstack" style="justify-content:space-between">
+            <div>
+              <div class="title" style="font-size:18px">Okonomiyaki (Osaka-style)</div>
+              <div class="meta"><span class="tag">Japan</span><span class="tag">Street food</span><span class="tag">History &amp; tips</span></div>
+            </div>
+            <a class="btn small" href="#recipe">Open</a>
+          </div>
+        </article>
+
+        <!-- Card 2 -->
+        <article class="card rec-card">
+          <img class="img"
+               src="https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=1200&auto=format&fit=crop"
+               alt="Acar Timun (Peranakan) pickled cucumber"
+               loading="lazy"
+               onerror="this.onerror=null; this.src='https://picsum.photos/id/292/1200/750';">
+          <div class="hstack" style="justify-content:space-between">
+            <div>
+              <div class="title" style="font-size:18px">Acar Timun (Peranakan)</div>
+              <div class="meta"><span class="tag">Malaysia</span><span class="tag">Pickles</span></div>
+            </div>
+            <a class="btn small" href="#recipe">Open</a>
+          </div>
+        </article>
+
+        <!-- Card 3 -->
+        <article class="card rec-card">
+          <div class="img" style="background-image:url('https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=1200&auto=format&fit=crop');"></div>
+          <div class="hstack" style="justify-content:space-between">
+            <div>
+              <div class="title" style="font-size:18px">Arepas de Chócolo</div>
+              <div class="meta"><span class="tag">Colombia</span><span class="tag">Corn</span></div>
+            </div>
+            <a class="btn small" href="#recipe">Open</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- RECIPE DETAIL -->
+    <section id="recipe" class="screen">
+      <div class="wrap vstack">
+        <div class="img" style="background-image:url('https://images.unsplash.com/photo-1553621042-f6e147245754?q=80&w=1200&auto=format&fit=crop');"></div>
+        <div class="hstack" style="justify-content:space-between">
+          <div>
+            <div class="title">Okonomiyaki (Osaka)</div>
+            <div class="subtitle">Savory pancake with cabbage — shaped by post-war ingenuity and neighborhood stalls.</div>
+          </div>
+          <a class="btn small" href="#ingredients">Ingredients</a>
+        </div>
+
+        <div class="two-col mt12">
+          <!-- Left: Steps + Story -->
+          <div class="vstack">
+            <div class="card vstack">
+              <div class="hstack" style="justify-content:space-between"><div class="title" style="font-size:16px">Steps</div><span class="chip">~25 min</span></div>
+              <div class="vstack">
+                <div class="step"><div class="bullet">1</div><div>Make batter with flour, dashi, and egg. Fold in finely shredded cabbage and green onions.</div></div>
+                <div class="step"><div class="bullet">2</div><div>Heat griddle; cook batter into a round. Add pork belly on top and flip until crisp.</div></div>
+                <div class="step"><div class="bullet">3</div><div>Brush okonomi sauce, zigzag with mayo, and finish with aonori &amp; katsuobushi.</div></div>
+              </div>
+            </div>
+
+            <div class="card vstack" id="story-card">
+              <div class="title" style="font-size:16px">Cultural background</div>
+              <div class="muted">
+                Born from scarcity in the post-war era, okonomiyaki (“as you like it”) became a canvas for local tastes.
+                Families gathered around teppan grills, layering stories as much as ingredients.
+              </div>
+              <div class="mt12">
+                <span class="pill">Stall culture</span>
+                <span class="pill">Teppan at home</span>
+                <span class="pill">Regional toppings</span>
+              </div>
+              <div class="mt16 vstack" style="gap:8px">
+                <button id="toggleCommunityStories" type="button" class="btn small ghost" style="width:100%">Show Community Stories</button>
+                <a class="btn full" href="#upload">Upload your own story about this dish</a>
+              </div>
+            </div>
+
+            <div class="card vstack" id="community-stories" hidden>
+              <div class="title" style="font-size:16px">Community stories</div>
+              <div class="vstack" id="stories-list"></div>
+            </div>
+          </div>
+
+          <!-- Right: Ingredients quick view -->
+          <aside class="vstack">
+            <div class="card vstack">
+              <div class="title" style="font-size:16px">Ingredients</div>
+              <div class="muted">Tap “Find Substitute” for locally available swaps.</div>
+
+              <div class="mt12">
+                <div class="ing">
+                  <div>All-purpose flour — 120g</div>
+                </div>
+                <div class="subrow" style="display:block"><div class="muted">Try <b>rice flour (50%) + AP flour (50%)</b> for a lighter bite.</div></div>
+              </div>
+
+              <div class="mt12">
+                <div class="ing">
+                  <div>Dashi stock — 150ml</div>
+                </div>
+                <div class="subrow" style="display:block"><div class="muted">No dashi? Use <b>chicken stock</b> + a splash of <b>fish sauce</b> (½ tsp) to emulate umami.</div></div>
+              </div>
+
+              <div class="mt12">
+                <div class="ing">
+                  <div>Katsuobushi — 1 handful</div>
+                </div>
+                <div class="subrow" style="display:block"><div class="muted">Try <b>nori flakes</b> or <b>anchovy powder (pinch)</b> for oceanic depth.</div></div>
+              </div>
+
+              <a class="btn full mt16" href="#ingredients">Open ingredient manager</a>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- INGREDIENT MANAGER -->
+    <section id="ingredients" class="screen">
+      <div class="wrap vstack">
+        <div class="hstack" style="justify-content:space-between">
+          <div class="title">My Ingredient List</div>
+          <a class="btn small" href="#scan">Scan surroundings</a>
+        </div>
+        <div class="subtitle">Unavailable items? Toggle “Find Substitute” to see AI-style recommendations.</div>
+
+        <div class="card vstack mt12">
+          <div class="subtitle">Recipe: Okonomiyaki</div>
+
+          <div class="mt12">
+            <div class="ing">
+              <div>Green cabbage — 300g</div>
+              <div class="hstack">
+                <input id="t4" class="toggle" type="checkbox" />
+                <label for="t4">Find Substitute</label>
+              </div>
+            </div>
+            <div class="subrow"><div class="muted">Try <b>Napa cabbage</b> (well-drained) or a mix of <b>cabbage + zucchini</b> for moisture.</div></div>
+          </div>
+
+          <div class="mt12">
+            <div class="ing">
+              <div>Okonomi sauce — 3 tbsp</div>
+              <div class="hstack">
+                <input id="t5" class="toggle" type="checkbox" />
+                <label for="t5">Find Substitute</label>
+              </div>
+            </div>
+            <div class="subrow"><div class="muted">Mix <b>Worcestershire : ketchup : soy</b> at 2:2:1 + pinch sugar.</div></div>
+          </div>
+
+          <div class="mt12">
+            <div class="ing">
+              <div>Japanese mayo — 2 tbsp</div>
+              <div class="hstack">
+                <input id="t6" class="toggle" type="checkbox" />
+                <label for="t6">Find Substitute</label>
+              </div>
+            </div>
+            <div class="subrow"><div class="muted">Use regular mayo + dash of <b>rice vinegar</b> &amp; <b>sugar</b>.</div></div>
+          </div>
+
+          <div class="mt20 hstack" style="justify-content:space-between">
+            <a class="btn ghost" href="#feed">Back to Feed</a>
+            <a class="btn brand" href="#recipe">Cook this</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCAN (Camera + shutter -> generates recipe) -->
+    <section id="scan" class="screen">
+      <div class="wrap vstack">
+        <div class="title">Scan</div>
+        <div class="subtitle">Point your camera at your pantry or fridge. Tap the shutter to analyze and suggest a recipe.</div>
+
+        <div class="cam-shell" id="camShell" aria-label="Camera view">
+          <video id="camVideo" class="cam-video" playsinline muted></video>
+          <div class="cam-fallback" id="camFallback" hidden
+               style="background-image:url(''); background-size:cover; background-position:center;"></div>
+
+          <div class="scan-flash" id="scanFlash"></div>
+          <button type="button" id="modeToggle" class="mode-toggle-btn" aria-pressed="true" title="Toggle demo / camera">DEMO</button>
+          <div class="cam-ui">
+            <div class="cam-top">
+              <div>00:00</div>
+              <div class="notch"></div>
+              <div>HDR • ◦◦◦</div>
+            </div>
+            <div class="cam-bottom">
+              <button id="shutter" class="shutter" aria-label="Capture"></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card scan-results mt12" id="scanResults" hidden>
+          <div class="title">Recipe from what you have</div>
+          <div class="subtitle">Based on items we detected as <b>In stock</b> in your list.</div>
+          <div class="divider"></div>
+          <div id="generatedRecipe" class="vstack"></div>
+          <div id="detectedList"></div>
+          <div class="mt12 hstack" style="justify-content:space-between">
+            <a class="btn ghost" href="#ingredients">Use in Manager</a>
+            <a class="btn brand" href="#recipe">Cook this</a>
+          </div>
+          <div class="mt12" style="text-align:center">
+            <button id="nextRecipeBtn" class="btn small ghost" type="button">Show another recipe</button>
+          </div>
+          <div id="aiAgent" class="ai-agent" hidden>
+            <div class="title" style="font-size:16px">AI Agent</div>
+            <div class="subtitle">Enter how you want to modify the recipe (e.g., healthier / gluten-free / spicier):</div>
+            <div id="chatLog" class="chat-log"></div>
+            <form id="chatForm" class="chat-form" autocomplete="off">
+              <input id="chatInput" type="text" placeholder="e.g., make it gluten-free, less oil, add more spice" />
+              <button type="submit" class="btn small brand">Send</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="note mt12" id="scanNote">Tip: Check items you currently have. Unchecked items will be treated as missing.</div>
+
+        <div class="mt20 hstack" style="justify-content:space-between">
+          <a class="btn ghost" href="#ingredients">Use in Manager</a>
+          <a class="btn brand" href="#feed">Done</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- UPLOAD STORY -->
+    <section id="upload" class="screen">
+      <div class="wrap vstack">
+        <div class="title">Upload your story</div>
+        <div class="subtitle">Share your memories and cultural understanding about this dish. Your story appears on the recipe page.</div>
+
+        <form class="card vstack" id="storyForm">
+          <label class="subtitle" for="storyTitle">Story title</label>
+          <input id="storyTitle" required placeholder="e.g., Street stalls in Namba at night"
+                 style="padding:12px; border-radius:14px; background:#12161f; color:var(--ink); border:1px solid var(--stroke)">
+
+          <label class="subtitle mt12" for="storyBody">Your story</label>
+          <textarea id="storyBody" required rows="6" placeholder="Write how this dish connects to your culture or memories…"
+                    style="padding:12px; border-radius:14px; background:#12161f; color:var(--ink); border:1px solid var(--stroke); resize:vertical"></textarea>
+
+          <label class="subtitle mt12" for="storyImage">Optional image</label>
+          <input id="storyImage" type="file" accept="image/*" style="color:var(--muted)">
+
+          <div class="mt16 hstack" style="justify-content:space-between">
+            <a class="btn ghost" href="#recipe">Cancel</a>
+            <button class="btn brand" type="submit">Post story</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <div class="tabs">
+      <a class="tab" href="#feed"><div class="ico">🏠</div><div>Feed</div></a>
+      <a class="tab" href="#recipe"><div class="ico">📖</div><div>Recipe</div></a>
+      <a class="tab" href="#ingredients"><div class="ico">🥬</div><div>Ingredients</div></a>
+      <a class="tab" href="#scan"><div class="ico">🔎</div><div>Scan</div></a>
+    </div>
+  </nav>
+</div>
+
+<!-- Default route -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!location.hash) location.hash = '#feed';
+});
+</script>
+
+<!-- Behavior -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 1) Image hardening
+  document.querySelectorAll('img.img').forEach(img => {
+    img.addEventListener('error', () => {
+      img.src = 'https://picsum.photos/seed/tradish-fallback/1200/750';
+    }, { once: true });
+  });
+
+  // 2) Substitute sync helpers
+  const substituteMap = new Map([
+    ['katsuobushi', '#t3'],
+    ['dashi', '#t2'],
+    ['okonomi sauce', '#t5'],
+    ['japanese mayo', '#t6'],
+    ['cabbage', '#t4'],
+    ['flour', '#t1']
+  ]);
+  const normalizeName = (text) => (text || '').toLowerCase().replace(/—.*$/,'').trim();
+  function syncSubstituteFor(itemName, inStock) {
+    const key = [...substituteMap.keys()].find(k => itemName.includes(k));
+    if (!key) return;
+    const toggle = document.querySelector(substituteMap.get(key));
+    if (toggle) {
+      toggle.checked = !inStock; // out of stock -> show substitute
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  // --- Alternative recipe cycling for Scan results ---
+  const altRecipes = [
+    {
+      title: 'Sandwich Salad Slaw',
+      badges: ['Europe', '~3 min', 'Pan-fried'],
+      steps: [
+        'Bread packaged in a bag.',
+        'Fold in finely sliced cabbage.',
+        'Toast bread, add slaw, drizzle with mayo/soy sauce.',
+        'Serve immediately.'
+      ]
+    },
+    {
+      title: 'Simple Tortilla Española',
+      badges: ['Spain', '~25 min', 'Stovetop'],
+      steps: [
+        '.',
+        'Beat eggs; combine with drained potato-onion.',
+        'Cook on low until set at edges; flip and finish.',
+        'Rest 5 minutes; slice and serve warm.'
+      ]
+    },
+    {
+      title: 'Pantry Omelette',
+      badges: ['Anytime', '~10 min'],
+      steps: [
+        'Beat eggs with a pinch of salt.',
+        'Sauté any chopped veg you have.',
+        'Add eggs; cook until just set. Fold and serve.'
+      ]
+    }
+  ];
+  let altRecipeIndex = 0;
+
+  const nextRecipeBtn = document.getElementById('nextRecipeBtn');
+  if (nextRecipeBtn) {
+    nextRecipeBtn.onclick = () => {
+      altRecipeIndex = (altRecipeIndex + 1) % altRecipes.length;
+      renderGenerated(altRecipes[altRecipeIndex]);
+    };
+  }
+
+  // When a new photo is taken, reset to first recipe
+  const origAfterPhotoTaken = afterPhotoTaken;
+  afterPhotoTaken = function() {
+    altRecipeIndex = 0;
+    renderGenerated(altRecipes[altRecipeIndex]);
+    if (typeof origAfterPhotoTaken === 'function') origAfterPhotoTaken();
+  };
+
+  // 3) Camera handling on #scan
+  // --- Scan page: Ask for camera permission with a popup before showing camera ---
+  const camVideo = document.getElementById('camVideo');
+  const camShell = document.getElementById('camShell');
+  const camFallback = document.getElementById('camFallback');
+  const shutter = document.getElementById('shutter');
+  const flash = document.getElementById('scanFlash');
+  let mediaStream = null;
+  let lastCaptureUrl = '';
+  // Demo mode: use static images instead of real camera
+  // Public demo images (replace with your own CDN/Imgur/S3 links as needed)
+  const DEMO_PRE_IMAGE = 'https://media.discordapp.net/attachments/1416220165305008168/1416593918648258715/image.png?ex=68c76965&is=68c617e5&hm=7d3dc63d85055832e02d2eac4c4ffb954658bf83a51f595c3571cbc11fc9eaac&=&format=webp&quality=lossless&width=1212&height=1212';
+  const DEMO_POST_IMAGE = 'https://media.discordapp.net/attachments/1416220165305008168/1416593971383111812/image.png?ex=68c76971&is=68c617f1&hm=3977cb664de1c452e9b58c629c255225aff5ff79e41f8eec649fb91b14036bda&=&format=webp&quality=lossless&width=778&height=778';
+  let demoCaptured = false;
+  let demoImgEl = null;
+  let isDemoMode = true; // testers start with demo images
+  
+  // Scan result elements
+  const scanResultsCard = document.getElementById('scanResults');
+  const generatedBox = document.getElementById('generatedRecipe');
+  const detectedList = document.getElementById('detectedList');
+  const scanNote = document.getElementById('scanNote');
+
+  // --- Simple AI-like ingredient detection & recipe generator ---
+  // Faux detector: in a real app this would call a model. Here we infer
+  // a handful of pantry items and keep it deterministic for demo.
+  function detectIngredientsFromImage(_dataUrl) {
+    // Keep this list small and culturally broad for demo purposes
+    // You can expand later or plug in a real model.
+    const base = ['potato', 'onion', 'egg', 'flour', 'cabbage', 'soy sauce', 'scallion'];
+    // If we have a previous capture, bias toward okonomiyaki ingredients
+    if (_dataUrl) return ['cabbage', 'flour', 'egg', 'soy sauce', 'scallion'];
+    return base;
+  }
+
+  // Current stock items used by afterPhotoTaken()
+  function currentStockItems() {
+    const names = detectIngredientsFromImage(lastCaptureUrl);
+    return names.map(n => ({
+      key: n.toLowerCase(),
+      name: n.charAt(0).toUpperCase() + n.slice(1),
+      inStock: true
+    }));
+  }
+
+  // Very small rule-based recipe generator for the demo UI
+  function generateRecipeFrom(items) {
+    const have = new Set(items.map(it => it.key));
+    // Okonomiyaki if cabbage + flour + egg
+    if (have.has('cabbage') && have.has('flour') && have.has('egg')) {
+      return {
+        title: 'Quick Okonomiyaki',
+        badges: ['Japan', '~20 min', 'Pan-fried'],
+        steps: [
+          'Mix flour, egg, splash of water/stock to make batter.',
+          'Fold in finely sliced cabbage and scallion.',
+          'Pan-fry into a thick pancake; flip once golden.',
+          'Brush soy/sauce blend, drizzle mayo if available.'
+        ]
+      };
+    }
+    // Spanish tortilla if potato + egg + onion
+    if (have.has('potato') && have.has('egg') && have.has('onion')) {
+      return {
+        title: 'Simple Tortilla Española',
+        badges: ['Spain', '~25 min', 'Stovetop'],
+        steps: [
+          'Slice potatoes and onions; gently pan-fry in oil.',
+          'Beat eggs; combine with drained potato-onion.',
+          'Cook on low until set at edges; flip and finish.',
+          'Rest 5 minutes; slice and serve warm.'
+        ]
+      };
+    }
+    // Fallback
+    return {
+      title: 'Pantry Omelette',
+      badges: ['Anytime', '~10 min'],
+      steps: [
+        'Beat eggs with a pinch of salt.',
+        'Sauté any chopped veg you have.',
+        'Add eggs; cook until just set. Fold and serve.'
+      ]
+    };
+  }
+
+  // Render the generated recipe into the Scan card
+  // Simple story database (extend or replace)
+  const recipeStories = {
+    'Quick Okonomiyaki': 'Okonomiyaki emerged in Japan as a flexible, post-war comfort food. Street stalls and home griddles turned leftover cabbage, batter, and toppings into a communal, customizable dish that symbolized resilience and creativity.',
+    'Simple Tortilla Española': 'The tortilla española became a Spanish staple in the 19th century—humble, protein-rich, and portable. It reflects rural ingenuity: transforming eggs, potatoes, and onion into something greater than the sum of its parts.',
+    'Pantry Omelette': 'A universal template across cultures—eggs plus whatever is on hand. It represents adaptability and the global language of making do while still creating something nourishing.',
+  };
+
+  function renderGenerated(recipe) {
+    if (!generatedBox || !recipe) return;
+    generatedBox.innerHTML = `
+      <div class="vstack">
+        <div class="hstack" style="justify-content:space-between">
+          <div class="title" style="font-size:16px">${recipe.title}</div>
+          <div class="recipe-badge">
+            ${(recipe.badges || []).map(b => `<span class="tag">${b}</span>`).join('')}
+          </div>
+        </div>
+        <div class="vstack mt12">
+          ${(recipe.steps || []).map((s,i) => `
+            <div class="step"><div class="bullet">${i+1}</div><div>${s}</div></div>
+          `).join('')}
+        </div>
+        <div class="mt12">
+          <button id="viewStoryBtn" type="button" class="btn small ghost">View Story</button>
+        </div>
+        <div id="recipeStory" class="card mt12" style="display:none; padding:12px; background:#121722; border:1px solid var(--stroke); border-radius:14px; font-size:13px; line-height:1.5;">
+          <div style="font-weight:700; margin-bottom:6px; font-size:14px;">Story</div>
+          <div class="muted" id="recipeStoryText">${recipeStories[recipe.title] || 'No story available for this recipe yet.'}</div>
+        </div>
+      </div>
+    `;
+    // Reveal the results card under the photo
+    if (scanResultsCard) scanResultsCard.hidden = false;
+  // Show AI agent (once per scan cycle)
+  if(typeof showAiAgentOnce === 'function') showAiAgentOnce();
+
+    // Wire story button toggle
+    const storyBtn = generatedBox.querySelector('#viewStoryBtn');
+    const storyBox = generatedBox.querySelector('#recipeStory');
+    if(storyBtn && storyBox){
+      storyBtn.addEventListener('click', () => {
+        const visible = storyBox.style.display !== 'none';
+        storyBox.style.display = visible ? 'none' : 'block';
+        storyBtn.textContent = visible ? 'View Story' : 'Hide Story';
+      });
+    }
+  }
+
+  // Create camera popup modal with live preview and capture button
+  let camPopup = null;
+  function showCameraPopup() {
+    // If a popup already exists, do nothing
+    if (camPopup) return;
+
+    camPopup = document.createElement('div');
+    camPopup.style.position = 'fixed';
+    camPopup.style.inset = '0';
+    camPopup.style.background = 'rgba(0,0,0,.65)';
+    camPopup.style.zIndex = '1000';
+    camPopup.style.display = 'flex';
+    camPopup.style.alignItems = 'center';
+    camPopup.style.justifyContent = 'center';
+    camPopup.innerHTML = `
+      <div style="background:#161a22; border-radius:18px; padding:18px; box-shadow:0 8px 32px #0008; text-align:center; width:min(92vw,420px);">
+        <div style="font-size:16px; font-weight:700; margin-bottom:10px;">Preview &amp; Take Photo</div>
+        <div style="position:relative; border:1px solid var(--stroke); border-radius:14px; overflow:hidden; aspect-ratio:9/16; background:#000;">
+          <video id="popupVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+          <div style="position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; padding:14px; pointer-events:none;">
+            <button id="popupCapture" aria-label="Take photo" style="pointer-events:auto; width:66px; height:66px; border-radius:50%; background:#fff; border:6px solid rgba(255,255,255,.3); box-shadow:0 6px 16px rgba(0,0,0,.5);"></button>
+          </div>
+        </div>
+        <div style="display:flex; gap:12px; justify-content:center; margin-top:14px;">
+          <button id="popupCancel" style="padding:10px 16px; border-radius:12px; font-weight:700; border:1px solid #242a36; background:#161a22; color:#e9eef8;">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(camPopup);
+
+    // Start camera specifically for the popup preview
+    const popupVideo = camPopup.querySelector('#popupVideo');
+    let popupStream = null;
+
+    async function startPopupCamera() {
+      try {
+        popupStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        popupVideo.srcObject = popupStream;
+        await popupVideo.play();
+      } catch (e) {
+        // If permission denied or error, close popup gracefully
+        camPopup.remove();
+        camPopup = null;
+      }
+    }
+
+    function stopPopupCamera() {
+      if (popupStream) {
+        popupStream.getTracks().forEach(t => t.stop());
+        popupStream = null;
+      }
+      popupVideo.pause();
+      popupVideo.srcObject = null;
+    }
+
+    camPopup.querySelector('#popupCancel').onclick = () => {
+      stopPopupCamera();
+      camPopup.remove();
+      camPopup = null;
+    };
+
+    camPopup.querySelector('#popupCapture').onclick = () => {
+      // Flash main shell for feedback
+      flash.classList.add('active');
+      setTimeout(() => flash.classList.remove('active'), 180);
+
+      // Capture current frame from the popup preview
+      const canvas = document.createElement('canvas');
+      const vw = popupVideo.videoWidth || 360;
+      const vh = popupVideo.videoHeight || 640;
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(popupVideo, 0, 0, vw, vh);
+      lastCaptureUrl = canvas.toDataURL('image/png');
+
+      // Stop popup cam and close popup
+      stopPopupCamera();
+      camPopup.remove();
+      camPopup = null;
+
+      // Ensure any background camera is off
+      stopCamera();
+
+      // Show captured photo in the main rectangle
+      let previewImg = camShell.querySelector('.cam-preview');
+      if (!previewImg) {
+        previewImg = document.createElement('img');
+        previewImg.className = 'cam-preview';
+        previewImg.style.position = 'absolute';
+        previewImg.style.inset = '0';
+        previewImg.style.width = '100%';
+        previewImg.style.height = '100%';
+        previewImg.style.objectFit = 'cover';
+        previewImg.style.borderRadius = '20px';
+        previewImg.style.zIndex = '1';
+        camShell.appendChild(previewImg);
+      }
+      if (lastCaptureUrl) {
+        previewImg.src = lastCaptureUrl;
+        previewImg.style.display = 'block';
+      }
+      camVideo.style.display = 'none';
+      camFallback.hidden = true;
+
+      // Build suggestions and keep other logic unchanged
+      afterPhotoTaken();
+    };
+
+    // Kick off the popup camera
+    startPopupCamera();
+  }
+  // Helper to build suggestions & detected list after a photo is taken
+  function afterPhotoTaken() {
+    // Use current stock items (existing helpers assumed elsewhere)
+    const items = currentStockItems ? currentStockItems() : [];
+
+    // Keep subs toggles in sync when user toggles checkboxes later
+    document.querySelectorAll('#scan .detected .item').forEach(row => {
+      const cb = row.querySelector('input[type="checkbox"]');
+      const chip = row.querySelector('.chip');
+      const nameEl = row.querySelector('.editable');
+      if (!cb || !chip || !nameEl) return;
+      cb.addEventListener('change', () => {
+        chip.textContent = cb.checked ? 'In stock' : 'Out';
+        syncSubstituteFor(normalizeName(nameEl.textContent), cb.checked);
+      });
+    });
+
+    // Sync substitute toggles now
+    items.forEach(it => syncSubstituteFor(it.key, it.inStock));
+
+    // Generate and render recipes
+    if (typeof generateRecipeFrom === 'function' && typeof renderGenerated === 'function') {
+      renderGenerated(generateRecipeFrom(items));
+    }
+
+    // Only show detected list after a photo is taken
+    const detectedList = document.getElementById('detectedList');
+    if (detectedList) {
+      detectedList.innerHTML = `
+        <div class="subtitle">Editable list (used for suggestions)</div>
+        ${items.map(it => `
+          <div class="item">
+            <input type="checkbox" class="checkbox" ${it.inStock ? 'checked' : ''} aria-label="In pantry">
+            <div class="editable" contenteditable="true">${it.name}</div>
+            <span class="chip">${it.inStock ? 'In stock' : 'Out'}</span>
+          </div>
+        `).join('')}
+      `;
+      detectedList.style.display = 'block';
+    }
+    const scanNote = document.getElementById('scanNote');
+    if (scanNote) scanNote.style.display = 'none';
+  }
+
+  function resetScanResults() {
+    if (generatedBox) generatedBox.innerHTML = '';
+    if (scanResultsCard) scanResultsCard.hidden = true;
+    if (detectedList) detectedList.innerHTML = '';
+    if (scanNote) scanNote.style.display = 'block';
+    const detectedListContainer = document.getElementById('detectedList');
+    if (detectedListContainer) detectedListContainer.style.display = 'none';
+    const aiAgent = document.getElementById('aiAgent');
+    if(aiAgent){ aiAgent.hidden = true; const log = document.getElementById('chatLog'); if(log) log.innerHTML=''; }
+    const previewImg = camShell.querySelector('.cam-preview');
+    if (previewImg && previewImg === demoImgEl){
+      demoCaptured = false;
+      if(isDemoMode){
+        previewImg.src = DEMO_PRE_IMAGE;
+        previewImg.style.display = DEMO_PRE_IMAGE ? 'block':'none';
+      } else {
+        previewImg.style.display='none';
+      }
+    } else if (previewImg) { previewImg.remove(); }
+    lastCaptureUrl = '';
+    camFallback.hidden = true;
+    if(!isDemoMode){ camVideo.style.display = 'block'; } else { camVideo.style.display='none'; }
+  }
+
+  async function startCamera() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }, audio: false
+      });
+      camVideo.srcObject = mediaStream;
+      await camVideo.play();
+      camFallback.hidden = true;
+      camVideo.style.display = 'block';
+    } catch (e) {
+      camFallback.hidden = true;
+      camVideo.style.display = 'none';
+    }
+  }
+
+  function stopCamera() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+    camVideo.pause();
+    camVideo.srcObject = null;
+    camVideo.style.display = 'none';
+  }
+
+  // Shutter: supports demo & camera modes (now using popup for real capture)
+  let usedPopupOnce = false;
+  shutter.addEventListener('click', () => {
+    if(!isDemoMode){
+      // Use popup for cleaner capture UX; fallback to legacy inline capture if popup already used once & stream active
+      if(!usedPopupOnce){
+        usedPopupOnce = true;
+        showCameraPopup();
+        return;
+      }
+      if(!camVideo.srcObject){
+        startCamera();
+        // Wait for stream then user can click again (or popup was used)
+        return;
+      }
+      // Legacy inline capture path preserved
+      flash.classList.add('active');
+      setTimeout(()=>flash.classList.remove('active'),180);
+      const canvas = document.createElement('canvas');
+      const vw = camVideo.videoWidth || 360;
+      const vh = camVideo.videoHeight || 640;
+      canvas.width = vw; canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(camVideo,0,0,vw,vh);
+      lastCaptureUrl = canvas.toDataURL('image/png');
+      if(!demoImgEl){
+        demoImgEl = document.createElement('img');
+        demoImgEl.className='cam-preview';
+        Object.assign(demoImgEl.style,{position:'absolute',inset:'0',width:'100%',height:'100%',objectFit:'cover',borderRadius:'20px',zIndex:'1'});
+        camShell.appendChild(demoImgEl);
+      }
+      demoImgEl.src = lastCaptureUrl;
+      demoImgEl.style.display='block';
+      camVideo.style.display='none';
+      stopCamera();
+      afterPhotoTaken();
+      return;
+    }
+    // DEMO MODE (existing static swap)
+    if(!demoImgEl){
+      demoImgEl = document.createElement('img');
+      demoImgEl.className = 'cam-preview';
+      Object.assign(demoImgEl.style,{position:'absolute',inset:'0',width:'100%',height:'100%',objectFit:'cover',borderRadius:'20px',zIndex:'1'});
+      camShell.appendChild(demoImgEl);
+    }
+    flash.classList.add('active');
+    setTimeout(()=>flash.classList.remove('active'),180);
+    if(!demoCaptured){
+      demoImgEl.src = DEMO_POST_IMAGE;
+      demoImgEl.style.display='block';
+      camVideo.style.display='none';
+      camFallback.hidden = true;
+      demoCaptured = true;
+      lastCaptureUrl = DEMO_POST_IMAGE;
+      afterPhotoTaken();
+    } else {
+      demoCaptured = false; lastCaptureUrl='';
+      resetScanResults();
+      demoImgEl.src = DEMO_PRE_IMAGE; demoImgEl.style.display='block';
+    }
+  });
+
+  // Mode toggle button behavior
+  const modeToggleBtn = document.getElementById('modeToggle');
+  if(modeToggleBtn){
+    modeToggleBtn.addEventListener('click', () => {
+      isDemoMode = !isDemoMode;
+      modeToggleBtn.textContent = isDemoMode ? 'DEMO' : 'CAM';
+      modeToggleBtn.setAttribute('aria-pressed', isDemoMode ? 'true':'false');
+      resetScanResults();
+      if(isDemoMode){
+        if(!demoImgEl){
+          demoImgEl = document.createElement('img');
+          demoImgEl.className='cam-preview';
+          Object.assign(demoImgEl.style,{position:'absolute',inset:'0',width:'100%',height:'100%',objectFit:'cover',borderRadius:'20px',zIndex:'1'});
+          camShell.appendChild(demoImgEl);
+        }
+        demoImgEl.src = DEMO_PRE_IMAGE;
+        demoImgEl.style.display='block';
+        stopCamera();
+      } else {
+        if(demoImgEl) demoImgEl.style.display='none';
+        startCamera();
+      }
+    });
+  }
+
+  // --- Ingredient page: Substitute logic ---
+  const substituteData = {
+    t4: { // Green cabbage
+      sub: 'Napa cabbage (well-drained) or cabbage + zucchini',
+      orig: 'Green cabbage — 300g'
+    },
+    t5: { // Okonomi sauce
+      sub: 'Worcestershire : ketchup : soy at 2:2:1 + pinch sugar',
+      orig: 'Okonomi sauce — 3 tbsp'
+    },
+    t6: { // Japanese mayo
+      sub: 'Regular mayo + dash of rice vinegar & sugar',
+      orig: 'Japanese mayo — 2 tbsp'
+    }
+  };
+
+  Object.keys(substituteData).forEach(id => {
+    const toggle = document.getElementById(id);
+    if (!toggle) return;
+    const ingDiv = toggle.closest('.ing');
+    const label = ingDiv.querySelector('label[for="' + id + '"]');
+    const origDiv = ingDiv.querySelector('div:first-child');
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) {
+  // Substitute found: replace ingredient with styled pill (fixed spacing)
+  origDiv.innerHTML = `<span class="substitute-pill">${substituteData[id].sub}</span>`;
+        label.textContent = 'Original';
+        label.style.background = 'linear-gradient(180deg,#ffd27d,#ffe7b3)';
+        label.style.color = '#222';
+        label.style.borderColor = '#ffd27d';
+      } else {
+        // Restore original ingredient and button
+        origDiv.textContent = substituteData[id].orig;
+        label.textContent = 'Find Substitute';
+        label.style.background = '';
+        label.style.color = '';
+        label.style.borderColor = '';
+      }
+    });
+  });
+
+  // --- AI Agent (simple rule-based placeholder) ---
+  const aiAgentBox = document.getElementById('aiAgent');
+  const chatLog = document.getElementById('chatLog');
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+
+  function addChatMsg(role, text){
+    if(!chatLog) return; 
+    const wrap = document.createElement('div');
+    wrap.className = `chat-msg ${role}`;
+    wrap.innerHTML = `<div class="avatar" aria-hidden="true">${role==='assistant'?'🤖':'🧑'}</div><div class="bubble">${text}</div>`;
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function aiRespond(userText){
+    const t = userText.toLowerCase();
+    const suggestions = [];
+  if(/spicy|heat|hot/.test(t)) suggestions.push('Add chili flakes, a little gochujang, or finely diced fresh chili for balanced heat.');
+  if(/gluten/.test(t)) suggestions.push('Swap flour for 70% rice flour + 30% cornstarch (gluten-free blend).');
+  if(/less oil|low fat|light(er)?|reduce oil/.test(t)) suggestions.push('Use a non-stick pan, brush oil instead of pouring, and increase cabbage for moisture.');
+  if(/vegan|plant[- ]based/.test(t)) suggestions.push('Replace egg with a flax egg (1 tbsp ground flax + 2.5 tbsp water) and skip bonito flakes.');
+  if(/healthy|lighter|nutritious|more veg/.test(t)) suggestions.push('Reduce sauce sugar, add extra shredded veg (carrot, mushroom) for fiber and micronutrients.');
+  if(/protein/.test(t)) suggestions.push('Add a handful of edamame, tofu cubes, or sliced seitan for extra protein.');
+  if(/low (carb|carbohydrate)/.test(t)) suggestions.push('Reduce flour and fold in more egg + finely shredded vegetables to cut net carbs.');
+  if(!suggestions.length) suggestions.push('I can adjust for spicy, gluten-free, vegan, healthier, higher protein, low carb, or less oil. Try a specific goal.');
+    setTimeout(()=>addChatMsg('assistant', suggestions.map(s=>`• ${s}`).join('<br>')), 400);
+  }
+
+  if(chatForm){
+    chatForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const val = chatInput.value.trim();
+      if(!val) return;
+      addChatMsg('user', val);
+      chatInput.value='';
+      aiRespond(val);
+    });
+  }
+
+  function showAiAgentOnce(){
+    if(aiAgentBox && aiAgentBox.hidden){
+      aiAgentBox.hidden = false;
+  addChatMsg('assistant', 'Describe how you want to change this recipe (e.g., gluten-free, spicier, less oil, higher protein).');
+    }
+  }
+
+  function onRoute() {
+    if (location.hash === '#scan') {
+      resetScanResults();
+      if(isDemoMode){
+        stopCamera();
+        if(!demoImgEl){
+          demoImgEl = document.createElement('img');
+          demoImgEl.className='cam-preview';
+          Object.assign(demoImgEl.style,{position:'absolute',inset:'0',width:'100%',height:'100%',objectFit:'cover',borderRadius:'20px',zIndex:'1'});
+          camShell.appendChild(demoImgEl);
+        }
+        demoImgEl.src = DEMO_PRE_IMAGE;
+        demoImgEl.style.display='block';
+        camVideo.style.display='none';
+        camFallback.hidden = true;
+      } else {
+        if(demoImgEl) demoImgEl.style.display='none';
+        startCamera();
+      }
+    } else {
+      stopCamera();
+    }
+  }
+
+  // Initial route check
+  onRoute();
+  window.addEventListener('hashchange', onRoute);
+
+  // --- Community stories toggle & persistence ---
+  const communityCard = document.getElementById('community-stories');
+  const toggleStoriesBtn = document.getElementById('toggleCommunityStories');
+  const storiesList = document.getElementById('stories-list');
+  const STORY_KEY = 'tradish.communityStories.okonomiyaki';
+
+  function loadStories(){
+    let data = [];
+    try { data = JSON.parse(localStorage.getItem(STORY_KEY) || '[]'); } catch(e) {}
+    if(!Array.isArray(data)) data = [];
+    if(storiesList){
+      storiesList.innerHTML = data.length ? data.map(s => `
+        <div style="padding:10px; border:1px solid var(--stroke); border-radius:12px; background:#121722;">
+          <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${s.title || 'Untitled'}</div>
+          <div style="font-size:13px; line-height:1.45; white-space:pre-wrap;">${s.body}</div>
+          ${s.date ? `<div class="muted" style="margin-top:6px; font-size:11px;">${new Date(s.date).toLocaleString()}</div>`:''}
+        </div>`).join('') : '<div class="muted" style="font-size:13px;">No community stories yet. Be the first to add one.</div>';
+    }
+  }
+
+  // Hook form submission (if user uploads a story)
+  const storyForm = document.getElementById('storyForm');
+  if(storyForm){
+    storyForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const title = document.getElementById('storyTitle').value.trim();
+      const body = document.getElementById('storyBody').value.trim();
+      if(!body) return;
+      let data = [];
+      try { data = JSON.parse(localStorage.getItem(STORY_KEY) || '[]'); } catch(e) {}
+      if(!Array.isArray(data)) data = [];
+      data.unshift({ title, body, date: Date.now() });
+      localStorage.setItem(STORY_KEY, JSON.stringify(data.slice(0,100))); // cap
+      // Navigate back & refresh view
+      location.hash = '#recipe';
+      setTimeout(()=>{ loadStories(); if(communityCard && !communityCard.hidden){ /* already visible */ } }, 50);
+      storyForm.reset();
+    });
+  }
+
+  if(toggleStoriesBtn){
+    toggleStoriesBtn.addEventListener('click', () => {
+      if(!communityCard) return;
+      const willShow = communityCard.hidden;
+      if(willShow){
+        loadStories();
+        communityCard.hidden = false;
+        toggleStoriesBtn.textContent = 'Hide Community Stories';
+      } else {
+        communityCard.hidden = true;
+        toggleStoriesBtn.textContent = 'Show Community Stories';
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
